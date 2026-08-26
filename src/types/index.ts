@@ -38,3 +38,17 @@ export interface IngestionStep {
   status: "pending" | "active" | "done" | "failed";
   error?: string;
 }
+
+/** A candidate term (a doc title or heading) that other docs can be cross-referenced against. */
+export interface ReferenceTerm {
+  term: string;
+  targetDocId: string;
+  targetTitle: string;
+  targetHeadingId?: string;
+  targetHeadingText?: string;
+}
+
+/** A cross-reference match the reader has selected, shown in the References panel. */
+export interface CrossReferenceMatch extends ReferenceTerm {
+  snippet: string;
+}

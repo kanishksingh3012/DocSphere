@@ -5,13 +5,16 @@ import type { DocumentRecord, WorkspaceSettings } from "@/types";
 
 interface AppState {
   settings: WorkspaceSettings;
+  /** Collapse state of the reading-mode heading tree (HeadingTree.tsx) — not a global sidebar. */
   sidebarCollapsed: boolean;
   addModalOpen: boolean;
+  commandPaletteOpen: boolean;
   activeUserId: string | null;
 
   setActiveUserId: (userId: string | null) => void;
   toggleSidebar: () => void;
   setAddModalOpen: (open: boolean) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<WorkspaceSettings>) => Promise<void>;
 
@@ -30,6 +33,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   sidebarCollapsed: false,
   addModalOpen: false,
+  commandPaletteOpen: false,
   activeUserId: null,
 
   setActiveUserId: (userId) => set({ activeUserId: userId }),
@@ -37,6 +41,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
   setAddModalOpen: (open) => set({ addModalOpen: open }),
+
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
 
   loadSettings: async () => {
     const existing = await db.settings.get("settings");

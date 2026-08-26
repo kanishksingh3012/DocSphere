@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { Workspace } from "@/screens/Workspace";
-import { Library } from "@/screens/Library";
+import { Home } from "@/screens/Home";
 import { Settings } from "@/screens/Settings";
 import { Auth } from "@/screens/Auth";
 import { useAppStore } from "@/store/useAppStore";
@@ -71,9 +71,9 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Workspace />} />
+          <Route path="/" element={<Home />} />
           <Route path="/doc/:docId" element={<Workspace />} />
-          <Route path="/library" element={<Library />} />
+          <Route path="/library" element={<Navigate to="/" replace />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

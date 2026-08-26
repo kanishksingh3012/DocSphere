@@ -1,51 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { buildTree, type TreeNode } from "@/lib/markdown";
 import type { ToCItem } from "@/types";
 
-interface OutlineProps {
+interface HeadingTreeProps {
   outline: ToCItem[];
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-interface TreeNode {
-  item: ToCItem;
-  children: TreeNode[];
-}
-
-function buildTree(items: ToCItem[]): TreeNode[] {
-  const root: TreeNode[] = [];
-  const stack: TreeNode[] = [];
-
-  for (const item of items) {
-    const node: TreeNode = { item, children: [] };
-    while (stack.length > 0 && stack[stack.length - 1].item.level >= item.level) {
-      stack.pop();
-    }
-    if (stack.length === 0) {
-      root.push(node);
-    } else {
-      stack[stack.length - 1].children.push(node);
-    }
-    stack.push(node);
-  }
-
-  return root;
-}
-
-function OutlineNode({
+function HeadingNode({
   node,
   depth,
   activeId,
-  collapsed,
+  collapsedIds,
   onToggle,
 }: {
   node: TreeNode;
   depth: number;
   activeId: string | null;
-  collapsed: Set<string>;
+  collapsedIds: Set<string>;
   onToggle: (id: string) => void;
 }) {
   const hasChildren = node.children.length > 0;
-  const isCollapsed = collapsed.has(node.item.id);
+  const isCollapsed = collapsedIds.has(node.item.id);
   const isActive = activeId === node.item.id;
 
   return (
@@ -84,12 +62,12 @@ function OutlineNode({
       {hasChildren && !isCollapsed && (
         <div>
           {node.children.map((child) => (
-            <OutlineNode
+            <HeadingNode
               key={child.item.id}
               node={child}
               depth={depth + 1}
               activeId={activeId}
-              collapsed={collapsed}
+              collapsedIds={collapsedIds}
               onToggle={onToggle}
             />
           ))}
@@ -99,14 +77,20 @@ function OutlineNode({
   );
 }
 
-export function Outline({ outline }: OutlineProps) {
+/**
+ * Left-panel nested outline of the CURRENTLY OPEN document only — its own
+ * headings, nested to whatever depth they actually have. This is not a list
+ * of other documents; switching documents happens through the command
+ * palette instead.
+ */
+export function HeadingTree({ outline, collapsed, onToggleCollapsed }: HeadingTreeProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   const tree = useMemo(() => buildTree(outline), [outline]);
 
-  const toggle = (id: string) => {
-    setCollapsed((prev) => {
+  const toggleNode = (id: string) => {
+    setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -135,22 +119,59 @@ export function Outline({ outline }: OutlineProps) {
     return () => observer.disconnect();
   }, [outline]);
 
-  if (outline.length === 0) {
-    return <p className="text-caption px-3 py-4">No headings found in this doc.</p>;
+  if (collapsed) {
+    return (
+      <div
+        className="flex h-full w-9 shrink-0 flex-col items-center border-r pt-3"
+        style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+      >
+        <button
+          onClick={onToggleCollapsed}
+          aria-label="Show outline"
+          title="Show outline (Cmd/Ctrl+B)"
+          className="rounded-md p-1.5"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+    );
   }
 
   return (
-    <nav aria-label="Table of contents" className="flex flex-col gap-0.5 px-2 py-3">
-      {tree.map((node) => (
-        <OutlineNode
-          key={node.item.id}
-          node={node}
-          depth={0}
-          activeId={activeId}
-          collapsed={collapsed}
-          onToggle={toggle}
-        />
-      ))}
-    </nav>
+    <aside
+      className="flex h-full w-60 shrink-0 flex-col overflow-y-auto border-r"
+      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+    >
+      <div className="flex items-center justify-between px-3 pt-3">
+        <span className="text-label">Outline</span>
+        <button
+          onClick={onToggleCollapsed}
+          aria-label="Hide outline"
+          title="Hide outline (Cmd/Ctrl+B)"
+          className="rounded-md p-1"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          <ChevronLeft size={14} />
+        </button>
+      </div>
+
+      {outline.length === 0 ? (
+        <p className="px-4 py-4 text-caption">No headings found in this doc.</p>
+      ) : (
+        <nav aria-label="Document outline" className="flex flex-col gap-0.5 px-2 py-3">
+          {tree.map((node) => (
+            <HeadingNode
+              key={node.item.id}
+              node={node}
+              depth={0}
+              activeId={activeId}
+              collapsedIds={collapsedIds}
+              onToggle={toggleNode}
+            />
+          ))}
+        </nav>
+      )}
+    </aside>
   );
 }

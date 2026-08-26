@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, estimateStorageUsage } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
@@ -39,6 +41,9 @@ export function Settings() {
 
   return (
     <div className="h-full overflow-y-auto px-8 py-8">
+      <Link to="/" className="mb-4 inline-flex items-center gap-1.5 text-label" style={{ color: "var(--color-text-muted)" }}>
+        <ArrowLeft size={14} /> Home
+      </Link>
       <h1 className="text-display mb-6">Settings</h1>
 
       <section className="mb-8 max-w-lg">
@@ -83,7 +88,7 @@ export function Settings() {
         </label>
 
         <label className="flex items-center justify-between text-label">
-          Sidebar collapsed by default
+          Outline collapsed by default
           <input
             type="checkbox"
             checked={settings.sidebarCollapsedByDefault}

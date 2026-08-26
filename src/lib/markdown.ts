@@ -54,3 +54,29 @@ export function extractDomain(url: string): string {
     return url;
   }
 }
+
+export interface TreeNode {
+  item: ToCItem;
+  children: TreeNode[];
+}
+
+/** Nests a flat heading list by level (H2 under H1, H3 under H2, ...). */
+export function buildTree(items: ToCItem[]): TreeNode[] {
+  const root: TreeNode[] = [];
+  const stack: TreeNode[] = [];
+
+  for (const item of items) {
+    const node: TreeNode = { item, children: [] };
+    while (stack.length > 0 && stack[stack.length - 1].item.level >= item.level) {
+      stack.pop();
+    }
+    if (stack.length === 0) {
+      root.push(node);
+    } else {
+      stack[stack.length - 1].children.push(node);
+    }
+    stack.push(node);
+  }
+
+  return root;
+}

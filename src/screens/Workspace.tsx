@@ -1,20 +1,27 @@
-import { isValidElement, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { isValidElement, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeHighlight from "rehype-highlight";
-import { Check } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { db } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
 import { slugify } from "@/lib/markdown";
-import { Outline } from "@/components/Outline";
+import {
+  annotateMarkdownWithXrefs,
+  buildReferenceIndex,
+  decodeXrefPayload,
+  extractSnippet,
+} from "@/lib/crossReference";
+import { HeadingTree } from "@/components/HeadingTree";
+import { ReferencesPanel } from "@/components/ReferencesPanel";
 import { CodeBlock } from "@/components/CodeBlock";
 import { ShortcutHintBar } from "@/components/ShortcutHintBar";
 import { EmptyState } from "@/components/EmptyState";
-import { DocumentCard } from "@/components/DocumentCard";
+import type { CrossReferenceMatch, ReferenceTerm } from "@/types";
 
 // Ingested images are cached as data: URIs for offline reading (see
 // docFetcher.ts); the default sanitize schema only allows http/https on
@@ -24,16 +31,19 @@ const sanitizeSchema = {
   protocols: {
     ...defaultSchema.protocols,
     src: [...(defaultSchema.protocols?.src ?? []), "data"],
+    href: [...(defaultSchema.protocols?.href ?? []), "xref"],
   },
 };
 
 // react-markdown separately runs its own urlTransform on every href/src
-// *before* rehype-sanitize ever sees the tree, and its default only allows
-// http(s)/irc(s)/mailto/xmpp — so the schema fix above isn't enough on its
-// own. Only widen it for `src`, not `href`, so a data:text/html link can't
-// slip through as an XSS vector.
-function allowCachedImageDataUrls(value: string, key: string) {
+// *before* rehype-sanitize (or the `a`/component overrides) ever see the
+// tree, and its default only allows http(s)/irc(s)/mailto/xmpp — so neither
+// cached-image data: URIs nor our synthetic xref:// links survive it
+// untouched. Widen it for exactly those two cases; anything else still goes
+// through the default sanitizer.
+function customUrlTransform(value: string, key: string) {
   if (key === "src" && value.startsWith("data:image/")) return value;
+  if (key === "href" && value.startsWith("xref://")) return value;
   return defaultUrlTransform(value);
 }
 
@@ -60,17 +70,17 @@ function useDebounced<T extends (...args: never[]) => void>(fn: T, delay: number
 
 export function Workspace() {
   const { docId } = useParams();
+  const navigate = useNavigate();
   const settings = useAppStore((s) => s.settings);
   const updateScrollProgress = useAppStore((s) => s.updateScrollProgress);
   const toggleCompleted = useAppStore((s) => s.toggleCompleted);
+  const headingTreeCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const toggleHeadingTree = useAppStore((s) => s.toggleSidebar);
 
   const doc = useLiveQuery(() => (docId ? db.documents.get(docId) : undefined), [docId]);
   const allDocs = useLiveQuery(() => db.documents.toArray(), []) ?? [];
 
-  const relatedDocs = useMemo(
-    () => (doc ? allDocs.filter((d) => d.category === doc.category && d.id !== doc.id).slice(0, 4) : []),
-    [doc, allDocs],
-  );
+  const [activeReference, setActiveReference] = useState<ReferenceTerm | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef<string | null>(null);
@@ -78,6 +88,10 @@ export function Workspace() {
   const debouncedSave = useDebounced((id: string, pct: number) => {
     updateScrollProgress(id, pct);
   }, 300);
+
+  useEffect(() => {
+    setActiveReference(null);
+  }, [docId]);
 
   useEffect(() => {
     if (!doc || !scrollRef.current) return;
@@ -134,11 +148,36 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [doc, toggleCompleted]);
 
+  const referenceTerms = useMemo(() => buildReferenceIndex(allDocs), [allDocs]);
+  const annotatedContent = useMemo(
+    () => (doc ? annotateMarkdownWithXrefs(doc.content, referenceTerms) : ""),
+    [doc, referenceTerms],
+  );
+
+  const activeMatch = useMemo<CrossReferenceMatch | null>(() => {
+    if (!activeReference) return null;
+    const targetDoc = allDocs.find((d) => d.id === activeReference.targetDocId);
+    if (!targetDoc) return null;
+    return { ...activeReference, snippet: extractSnippet(targetDoc, activeReference.targetHeadingText) };
+  }, [activeReference, allDocs]);
+
+  const openReferencedDocument = (targetDocId: string) => {
+    const term = activeReference;
+    setActiveReference(null);
+    if (targetDocId === docId) {
+      if (term?.targetHeadingId) {
+        document.getElementById(term.targetHeadingId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+    navigate(`/doc/${targetDocId}`);
+  };
+
   if (!docId) {
     return (
       <EmptyState
         title="Pick a document to start reading"
-        description="Choose a doc from the sidebar, or add a new one to get started."
+        description="Open ⌘K to search your docs, or add a new one to get started."
         ctaLabel="Add your first doc"
       />
     );
@@ -158,11 +197,16 @@ export function Workspace() {
         className="flex shrink-0 items-center justify-between border-b px-6 py-3"
         style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
       >
-        <div className="min-w-0">
-          <h1 className="truncate text-heading">{doc.title}</h1>
-          <p className="text-caption">
-            {doc.domain} · {Math.round(doc.scrollProgress)}% read
-          </p>
+        <div className="flex min-w-0 items-center gap-4">
+          <Link to="/" aria-label="Back to Home" style={{ color: "var(--color-text-muted)" }}>
+            <ArrowLeft size={16} />
+          </Link>
+          <div className="min-w-0">
+            <h1 className="truncate text-heading">{doc.title}</h1>
+            <p className="text-caption">
+              {doc.domain} · {Math.round(doc.scrollProgress)}% read
+            </p>
+          </div>
         </div>
         <button
           onClick={() => toggleCompleted(doc.id)}
@@ -178,6 +222,8 @@ export function Workspace() {
       </header>
 
       <div className="flex min-h-0 flex-1">
+        <HeadingTree outline={doc.outline} collapsed={headingTreeCollapsed} onToggleCollapsed={toggleHeadingTree} />
+
         <div
           ref={scrollRef}
           onScroll={handleScroll}
@@ -188,38 +234,44 @@ export function Workspace() {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeHighlight]}
-              urlTransform={allowCachedImageDataUrls}
+              urlTransform={customUrlTransform}
               components={{
                 h1: ({ children }) => <h1 id={slugify(extractText(children))}>{children}</h1>,
                 h2: ({ children }) => <h2 id={slugify(extractText(children))}>{children}</h2>,
                 h3: ({ children }) => <h3 id={slugify(extractText(children))}>{children}</h3>,
                 pre: ({ children }) => <>{children}</>,
                 code: ({ className, children }) => <CodeBlock className={className}>{children}</CodeBlock>,
+                a: ({ href, children }) => {
+                  const term = href ? decodeXrefPayload(href) : null;
+                  if (term) {
+                    return (
+                      <button
+                        onClick={() => setActiveReference(term)}
+                        className="underline decoration-dotted underline-offset-2"
+                        style={{ color: "inherit" }}
+                      >
+                        {children}
+                      </button>
+                    );
+                  }
+                  return (
+                    <a href={href} target="_blank" rel="noreferrer">
+                      {children}
+                    </a>
+                  );
+                },
               }}
             >
-              {doc.content}
+              {annotatedContent}
             </ReactMarkdown>
           </article>
-
-          {relatedDocs.length > 0 && (
-            <div className="mx-auto mt-12 max-w-3xl border-t pt-6" style={{ borderColor: "var(--color-border)" }}>
-              <p className="mb-3 text-label">More in {doc.category}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {relatedDocs.map((d) => (
-                  <DocumentCard key={d.id} doc={d} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
-        <aside
-          className="hidden w-60 shrink-0 overflow-y-auto border-l lg:block"
-          style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
-        >
-          <p className="px-4 pt-4 text-label">Outline</p>
-          <Outline outline={doc.outline} />
-        </aside>
+        <ReferencesPanel
+          match={activeMatch}
+          onClose={() => setActiveReference(null)}
+          onOpenDocument={openReferencedDocument}
+        />
       </div>
 
       <ShortcutHintBar />
