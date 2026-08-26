@@ -1,16 +1,36 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Library, Plus, Search, Settings as SettingsIcon, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Library,
+  Plus,
+  Search,
+  Settings as SettingsIcon,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Check,
+  X,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
 
 export function Sidebar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const collapsed = useAppStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const setAddModalOpen = useAppStore((s) => s.setAddModalOpen);
+  const deleteDocument = useAppStore((s) => s.deleteDocument);
   const [query, setQuery] = useState("");
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const handleDelete = (id: string) => {
+    deleteDocument(id);
+    setConfirmingId(null);
+    if (pathname === `/doc/${id}`) navigate("/");
+  };
 
   const documents = useLiveQuery(() => db.documents.toArray(), []) ?? [];
 
@@ -113,21 +133,71 @@ export function Sidebar() {
           <div key={category} className="mb-4">
             <p className="px-2 pb-1 text-caption uppercase tracking-wide">{category}</p>
             {docs.map((doc) => (
-              <Link
-                key={doc.id}
-                to={`/doc/${doc.id}`}
-                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-label"
-                style={{
-                  backgroundColor: pathname === `/doc/${doc.id}` ? "var(--color-accent)" : "transparent",
-                  color: "var(--color-text)",
-                }}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <FileText size={13} className="shrink-0" />
-                  <span className="truncate">{doc.title}</span>
-                </span>
-                <span className="shrink-0 text-caption">{Math.round(doc.scrollProgress)}%</span>
-              </Link>
+              <div key={doc.id} className="group relative">
+                <Link
+                  to={`/doc/${doc.id}`}
+                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-label"
+                  style={{
+                    backgroundColor: pathname === `/doc/${doc.id}` ? "var(--color-accent)" : "transparent",
+                    color: "var(--color-text)",
+                  }}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <FileText size={13} className="shrink-0" />
+                    <span className="truncate">{doc.title}</span>
+                  </span>
+                  {confirmingId !== doc.id && (
+                    <span className="shrink-0 text-caption group-hover:hidden">
+                      {Math.round(doc.scrollProgress)}%
+                    </span>
+                  )}
+                </Link>
+
+                {confirmingId === doc.id ? (
+                  <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(doc.id);
+                      }}
+                      aria-label={`Confirm delete ${doc.title}`}
+                      title="Confirm delete"
+                      className="rounded p-0.5"
+                      style={{ color: "var(--color-danger)" }}
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setConfirmingId(null);
+                      }}
+                      aria-label="Cancel delete"
+                      title="Cancel"
+                      className="rounded p-0.5"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setConfirmingId(doc.id);
+                    }}
+                    aria-label={`Delete ${doc.title}`}
+                    title="Delete document"
+                    className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded p-0.5 group-hover:block"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         ))}
