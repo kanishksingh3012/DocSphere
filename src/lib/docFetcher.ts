@@ -30,11 +30,19 @@ function toGitHubRawUrl(url: string): string {
     .replace("/blob/", "/");
 }
 
-async function fetchWithTimeout(url: string): Promise<Response> {
+// Many sites (docs portals especially) render their full sidebar/nav tree
+// into the DOM — including collapsed entries with full article previews, for
+// client-side search — which a static HTML-to-Markdown pass can't tell apart
+// from real page content. Stripping these standard chrome landmarks before
+// conversion keeps ingestion from pulling in the entire site nav alongside
+// the actual article.
+const JINA_REMOVE_SELECTOR = "nav, header, footer, aside, [role=navigation], [role=banner], [role=contentinfo]";
+
+async function fetchWithTimeout(url: string, headers?: HeadersInit): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, headers });
     if (!res.ok) {
       throw new IngestionError("fetch", `Source responded with ${res.status} ${res.statusText}`);
     }
@@ -74,7 +82,9 @@ async function fetchAsMarkdown(sourceUrl: string): Promise<{ title: string | nul
     return { title: null, markdown: await res.text() };
   }
 
-  const res = await fetchWithTimeout(`${JINA_BASE}/${sourceUrl}`);
+  const res = await fetchWithTimeout(`${JINA_BASE}/${sourceUrl}`, {
+    "X-Remove-Selector": JINA_REMOVE_SELECTOR,
+  });
   const text = await res.text();
   if (!text.trim()) {
     throw new IngestionError("convert", "The source returned no readable content.");
