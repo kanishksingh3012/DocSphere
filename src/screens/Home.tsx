@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getContinueReadingDoc, getRecentDocs } from "@/lib/continueReading";
 import { DocumentCard } from "@/components/DocumentCard";
 import { EmptyState } from "@/components/EmptyState";
+import { NavActions } from "@/components/NavActions";
 import { useAppStore } from "@/store/useAppStore";
 
 export function Home() {
@@ -34,13 +35,16 @@ export function Home() {
         style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
       >
         <span className="text-heading">DocSphere</span>
-        <button
-          onClick={() => setAddModalOpen(true)}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-label"
-          style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
-        >
-          <Plus size={14} /> Add doc
-        </button>
+        <div className="flex items-center gap-2">
+          <NavActions />
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-label"
+            style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+          >
+            <Plus size={14} /> Add doc
+          </button>
+        </div>
       </header>
 
       {documents.length === 0 ? (

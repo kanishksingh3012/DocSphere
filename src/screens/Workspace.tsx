@@ -9,7 +9,7 @@ import rehypeHighlight from "rehype-highlight";
 import { ArrowLeft, Check } from "lucide-react";
 import { db } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
-import { slugify } from "@/lib/markdown";
+import { resolveInPageAnchor, slugify } from "@/lib/markdown";
 import {
   annotateMarkdownWithXrefs,
   buildReferenceIndex,
@@ -17,6 +17,7 @@ import {
   extractSnippet,
 } from "@/lib/crossReference";
 import { HeadingTree } from "@/components/HeadingTree";
+import { NavActions } from "@/components/NavActions";
 import { ReferencesPanel } from "@/components/ReferencesPanel";
 import { CodeBlock } from "@/components/CodeBlock";
 import { ShortcutHintBar } from "@/components/ShortcutHintBar";
@@ -148,10 +149,16 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [doc, toggleCompleted]);
 
-  const referenceTerms = useMemo(() => buildReferenceIndex(allDocs), [allDocs]);
+  // Keyed on id+title+outline only (not the whole allDocs array) so an
+  // unrelated scroll-progress autosave on any doc — which changes allDocs'
+  // reference every ~300ms while reading — doesn't recompute this and cascade
+  // into re-rendering the whole markdown tree below (that cascade was the
+  // cause of the reading pane visibly jumping near the end of a scroll).
+  const referenceIndexKey = allDocs.map((d) => `${d.id}:${d.title}:${d.outline.length}`).join("|");
+  const referenceTerms = useMemo(() => buildReferenceIndex(allDocs), [referenceIndexKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const annotatedContent = useMemo(
     () => (doc ? annotateMarkdownWithXrefs(doc.content, referenceTerms) : ""),
-    [doc, referenceTerms],
+    [doc?.content, referenceTerms],
   );
 
   const activeMatch = useMemo<CrossReferenceMatch | null>(() => {
@@ -208,17 +215,20 @@ export function Workspace() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => toggleCompleted(doc.id)}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-label"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: doc.isCompleted ? "var(--color-primary)" : "transparent",
-            color: doc.isCompleted ? "var(--color-bg)" : "var(--color-text)",
-          }}
-        >
-          <Check size={14} /> {doc.isCompleted ? "Completed" : "Mark as read"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <NavActions />
+          <button
+            onClick={() => toggleCompleted(doc.id)}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-label"
+            style={{
+              borderColor: "var(--color-border)",
+              backgroundColor: doc.isCompleted ? "var(--color-primary)" : "transparent",
+              color: doc.isCompleted ? "var(--color-bg)" : "var(--color-text)",
+            }}
+          >
+            <Check size={14} /> {doc.isCompleted ? "Completed" : "Mark as read"}
+          </button>
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -254,6 +264,21 @@ export function Workspace() {
                       </button>
                     );
                   }
+                  const inPageId = href ? resolveInPageAnchor(href, doc.sourceUrl, doc.outline) : null;
+                  if (inPageId) {
+                    return (
+                      <button
+                        onClick={() =>
+                          document.getElementById(inPageId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+                        }
+                        className="underline decoration-dotted underline-offset-2"
+                        style={{ color: "inherit" }}
+                      >
+                        {children}
+                      </button>
+                    );
+                  }
+
                   return (
                     <a href={href} target="_blank" rel="noreferrer">
                       {children}

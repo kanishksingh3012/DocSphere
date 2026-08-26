@@ -47,12 +47,74 @@ export function guessTitle(markdown: string, fallback: string): string {
   return firstHeading ? toPlainText(firstHeading[1]) : fallback;
 }
 
+const MAX_LINE_LENGTH = 400;
+const TRUNCATED_PREVIEW_LENGTH = 160;
+
+/**
+ * Some directory/index pages (a "docs home" listing every article, for
+ * instance) embed each linked article's *entire* text inside that link's
+ * label — likely for SEO/crawlability. That isn't real navigation chrome
+ * (so header/nav/footer stripping in docFetcher.ts never touches it), but a
+ * single markdown line running to several KB is never legitimate prose —
+ * truncate any such line to a short plain-text preview instead of storing
+ * the whole embedded article as noise.
+ */
+export function cleanOversizedLines(markdown: string): string {
+  return markdown
+    .split("\n")
+    .map((line) => {
+      if (line.length <= MAX_LINE_LENGTH) return line;
+      const plain = line
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // drop images first — otherwise their
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // nested `]` breaks the link regex below
+        .replace(/[`*_#]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return plain.length > TRUNCATED_PREVIEW_LENGTH
+        ? `${plain.slice(0, TRUNCATED_PREVIEW_LENGTH).trim()}…`
+        : plain;
+    })
+    .join("\n");
+}
+
 export function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
     return url;
   }
+}
+
+/**
+ * Docs sites often bake their own "on this page" index links straight into
+ * the article as absolute URLs back to themselves (`https://site.com/page
+ * #section`), which Jina Reader carries over unchanged. Rendered naively
+ * those look external and open the live source site in a new tab instead of
+ * scrolling within our own copy. Resolves such a link (or a plain `#id`
+ * link) back to one of this doc's own heading ids, if it matches one.
+ */
+export function resolveInPageAnchor(href: string, sourceUrl: string, outline: ToCItem[]): string | null {
+  let fragment: string | null = null;
+
+  if (href.startsWith("#")) {
+    fragment = href.slice(1);
+  } else {
+    try {
+      const linkUrl = new URL(href);
+      const docUrl = new URL(sourceUrl);
+      if (linkUrl.origin === docUrl.origin && linkUrl.pathname === docUrl.pathname && linkUrl.hash) {
+        fragment = linkUrl.hash.slice(1);
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  if (!fragment) return null;
+  const decoded = decodeURIComponent(fragment);
+  const slug = slugify(decoded);
+  const match = outline.find((h) => h.id === decoded || h.id === slug || slugify(h.text) === slug);
+  return match?.id ?? null;
 }
 
 export interface TreeNode {
