@@ -77,6 +77,35 @@ export function cleanOversizedLines(markdown: string): string {
     .join("\n");
 }
 
+/**
+ * Strips residual page chrome that survives extraction: empty heading
+ * permalink anchors (`[](url)`), "N mins READ" badges, and logo images
+ * sitting above the first heading.
+ */
+export function cleanNoise(markdown: string): string {
+  let seenHeading = false;
+  return markdown
+    .split("\n")
+    .filter((line) => {
+      if (/^\s{0,3}#{1,6}\s/.test(line)) seenHeading = true;
+      if (/^\s*\d+\s*mins?\s+read\s*$/i.test(line)) return false;
+      if (!seenHeading && /^\s*!\[[^\]]*logo[^\]]*\]\([^)]*\)\s*$/i.test(line)) return false;
+      return true;
+    })
+    .map((line) => line.replace(/\[\]\([^)]*\)/g, ""))
+    .join("\n");
+}
+
+/** Compares source URLs ignoring protocol, "www.", trailing slash, and fragment. */
+export function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/+$/, "")}${u.search}`.toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
+}
+
 export function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { db, DEFAULT_SETTINGS } from "@/lib/db";
 import { pushDocument, deleteRemoteDocument } from "@/lib/syncService";
+import { ingestDocument } from "@/lib/docFetcher";
 import type { DocumentRecord, WorkspaceSettings } from "@/types";
 
 interface AppState {
@@ -22,6 +23,7 @@ interface AppState {
   updateScrollProgress: (id: string, scrollProgress: number) => Promise<void>;
   toggleCompleted: (id: string) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
+  refreshDocument: (id: string) => Promise<void>;
   clearAllDocuments: () => Promise<void>;
 }
 
@@ -84,6 +86,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...doc,
       isCompleted: !doc.isCompleted,
       scrollProgress: !doc.isCompleted ? 100 : doc.scrollProgress,
+      updatedAt: Date.now(),
+    };
+    await db.documents.put(updated);
+    await syncAfterWrite(updated, get().activeUserId);
+  },
+
+  // Re-ingests a doc from its source URL into the same record — the way to
+  // fix docs saved before extraction improvements — keeping reading state.
+  refreshDocument: async (id) => {
+    const doc = await db.documents.get(id);
+    if (!doc) return;
+    const fresh = await ingestDocument({ sourceUrl: doc.sourceUrl, category: doc.category, tags: doc.tags });
+    const updated: DocumentRecord = {
+      ...fresh,
+      id: doc.id,
+      userId: doc.userId,
+      scrollProgress: doc.scrollProgress,
+      isCompleted: doc.isCompleted,
+      addedAt: doc.addedAt,
+      lastReadAt: doc.lastReadAt,
       updatedAt: Date.now(),
     };
     await db.documents.put(updated);

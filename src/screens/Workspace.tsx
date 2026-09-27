@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeHighlight from "rehype-highlight";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, RefreshCw } from "lucide-react";
 import { db } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
 import { resolveInPageAnchor, slugify } from "@/lib/markdown";
@@ -82,6 +82,8 @@ export function Workspace() {
   const allDocs = useLiveQuery(() => db.documents.toArray(), []) ?? [];
 
   const [activeReference, setActiveReference] = useState<ReferenceTerm | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshDocument = useAppStore((s) => s.refreshDocument);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef<string | null>(null);
@@ -217,6 +219,22 @@ export function Workspace() {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <NavActions />
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              try {
+                await refreshDocument(doc.id);
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            disabled={refreshing}
+            title="Re-fetch this doc from its source"
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-label disabled:opacity-50"
+            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
           <button
             onClick={() => toggleCompleted(doc.id)}
             className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-label"

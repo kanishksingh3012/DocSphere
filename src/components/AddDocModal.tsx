@@ -5,7 +5,8 @@ import { Check, Loader2, X } from "lucide-react";
 import { db } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
 import { ingestDocument, INITIAL_STEPS, IngestionError } from "@/lib/docFetcher";
-import type { IngestionStep } from "@/types";
+import { normalizeUrl } from "@/lib/markdown";
+import type { DocumentRecord, IngestionStep } from "@/types";
 
 export function AddDocModal() {
   const open = useAppStore((s) => s.addModalOpen);
@@ -24,10 +25,13 @@ export function AddDocModal() {
   const [steps, setSteps] = useState<IngestionStep[]>(INITIAL_STEPS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<DocumentRecord | null>(null);
+  const refreshDocument = useAppStore((s) => s.refreshDocument);
 
   if (!open) return null;
 
   const reset = () => {
+    setDuplicate(null);
     setUrl("");
     setCategory("");
     setTags("");
@@ -43,8 +47,16 @@ export function AddDocModal() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setError(null);
+
+    const target = normalizeUrl(url);
+    const existing = (await db.documents.toArray()).find((d) => normalizeUrl(d.sourceUrl) === target);
+    if (existing) {
+      setDuplicate(existing);
+      return;
+    }
+
+    setBusy(true);
     setSteps(INITIAL_STEPS);
 
     try {
@@ -138,6 +150,46 @@ export function AddDocModal() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {duplicate && (
+            <div className="flex flex-col gap-2 rounded-md border p-3 text-label" style={{ borderColor: "var(--color-border)" }}>
+              <span>"{duplicate.title}" is already in your library.</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = duplicate.id;
+                    close();
+                    navigate(`/doc/${id}`);
+                  }}
+                  className="rounded-md border px-3 py-1.5"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  Open it
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = duplicate.id;
+                    setDuplicate(null);
+                    setBusy(true);
+                    try {
+                      await refreshDocument(id);
+                      close();
+                      navigate(`/doc/${id}`);
+                    } catch (err) {
+                      setError(err instanceof IngestionError ? err.message : "Couldn't refresh that doc.");
+                      setBusy(false);
+                    }
+                  }}
+                  className="rounded-md px-3 py-1.5"
+                  style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+                >
+                  Refresh from source
+                </button>
+              </div>
+            </div>
           )}
 
           {error && (

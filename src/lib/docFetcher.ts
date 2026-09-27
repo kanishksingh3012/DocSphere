@@ -1,5 +1,5 @@
 import type { DocumentRecord, IngestionStep, IngestionStepId } from "@/types";
-import { buildOutline, cleanOversizedLines, extractDomain, guessTitle } from "./markdown";
+import { buildOutline, cleanNoise, cleanOversizedLines, extractDomain, guessTitle } from "./markdown";
 
 const JINA_BASE = import.meta.env.VITE_JINA_READER_BASE || "https://r.jina.ai";
 const FETCH_TIMEOUT_MS = 20_000;
@@ -160,7 +160,7 @@ export async function ingestDocument({
     report("fetch", "active");
     report("convert", "pending");
     ({ title: jinaTitle, markdown } = await fetchAsMarkdown(sourceUrl));
-    markdown = cleanOversizedLines(markdown);
+    markdown = cleanNoise(cleanOversizedLines(markdown));
     report("fetch", "done");
     report("convert", "done");
   } catch (err) {
