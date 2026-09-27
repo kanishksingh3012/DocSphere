@@ -40,7 +40,7 @@ export function Home() {
           <button
             onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-label"
-            style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+            style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
           >
             <Plus size={14} /> Add doc
           </button>
@@ -80,7 +80,7 @@ export function Home() {
                 </div>
                 <span
                   className="shrink-0 rounded-md px-3 py-2 text-label"
-                  style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+                  style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
                 >
                   Resume →
                 </span>
@@ -121,7 +121,7 @@ export function Home() {
                 style={{
                   borderColor: "var(--color-border)",
                   backgroundColor: activeCategory === cat ? "var(--color-primary)" : "transparent",
-                  color: activeCategory === cat ? "var(--color-bg)" : "var(--color-text)",
+                  color: activeCategory === cat ? "var(--accent-foreground)" : "var(--color-text)",
                 }}
               >
                 {cat}

@@ -43,7 +43,7 @@ export function ReferencesPanel({ match, onClose, onOpenDocument }: ReferencesPa
         <button
           onClick={() => onOpenDocument(match.targetDocId)}
           className="mt-4 w-full rounded-md px-3 py-2 text-label"
-          style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+          style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
         >
           Open document
         </button>

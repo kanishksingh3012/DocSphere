@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, estimateStorageUsage } from "@/lib/db";
 import { useAppStore } from "@/store/useAppStore";
+import { COLOR_THEMES } from "@/components/ThemeControls";
 import { useAuthStore } from "@/store/useAuthStore";
 
 function formatBytes(bytes: number): string {
@@ -62,6 +63,31 @@ export function Settings() {
             <option value="dark">Dark</option>
           </select>
         </label>
+
+        <div className="mb-4 text-label">
+          Color theme
+          <div role="radiogroup" aria-label="Color theme" className="mt-2 flex flex-wrap gap-2">
+            {COLOR_THEMES.map((t) => {
+              const active = settings.colorTheme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => updateSettings({ colorTheme: t.id })}
+                  className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-body"
+                  style={{
+                    borderColor: active ? "var(--accent)" : "var(--color-border)",
+                    color: "var(--color-text)",
+                  }}
+                >
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.swatch }} />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <label className="mb-4 block text-label">
           Font size ({settings.fontSize}px)

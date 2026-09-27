@@ -51,7 +51,7 @@ export function Auth({ onSkip }: { onSkip: () => void }) {
               type="submit"
               disabled={!isSupabaseConfigured}
               className="rounded-md px-3 py-2 text-label disabled:opacity-40"
-              style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+              style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
             >
               Send magic link
             </button>

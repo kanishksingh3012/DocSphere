@@ -62,7 +62,7 @@ function extractText(node: ReactNode): string {
 }
 
 function useDebounced<T extends (...args: never[]) => void>(fn: T, delay: number) {
-  const timeout = useRef<ReturnType<typeof setTimeout>>();
+  const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   return (...args: Parameters<T>) => {
     clearTimeout(timeout.current);
     timeout.current = setTimeout(() => fn(...args), delay);
@@ -241,7 +241,7 @@ export function Workspace() {
             style={{
               borderColor: "var(--color-border)",
               backgroundColor: doc.isCompleted ? "var(--color-primary)" : "transparent",
-              color: doc.isCompleted ? "var(--color-bg)" : "var(--color-text)",
+              color: doc.isCompleted ? "var(--accent-foreground)" : "var(--color-text)",
             }}
           >
             <Check size={14} /> {doc.isCompleted ? "Completed" : "Mark as read"}
@@ -258,7 +258,7 @@ export function Workspace() {
           className="min-w-0 flex-1 overflow-y-auto px-8 py-8"
           style={{ fontSize: `${settings.fontSize}px` }}
         >
-          <article className="prose mx-auto max-w-3xl dark:prose-invert">
+          <article className="prose mx-auto max-w-3xl">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeHighlight]}

@@ -184,7 +184,7 @@ export function AddDocModal() {
                     }
                   }}
                   className="rounded-md px-3 py-1.5"
-                  style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+                  style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
                 >
                   Refresh from source
                 </button>
@@ -212,7 +212,7 @@ export function AddDocModal() {
               type="submit"
               disabled={busy}
               className="rounded-md px-3 py-2 text-label"
-              style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+              style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
             >
               {busy ? "Ingesting..." : error ? "Retry" : "Add doc"}
             </button>

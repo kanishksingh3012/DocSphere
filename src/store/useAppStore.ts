@@ -48,7 +48,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadSettings: async () => {
     const existing = await db.settings.get("settings");
-    const settings = existing ?? DEFAULT_SETTINGS;
+    // Merge over defaults so settings saved before a field existed (e.g.
+    // colorTheme) pick up its default instead of being undefined.
+    const settings = { ...DEFAULT_SETTINGS, ...existing };
     if (!existing) await db.settings.put(DEFAULT_SETTINGS);
     set({ settings, sidebarCollapsed: settings.sidebarCollapsedByDefault });
   },

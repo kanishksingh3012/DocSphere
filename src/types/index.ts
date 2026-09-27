@@ -21,9 +21,12 @@ export interface DocumentRecord {
   updatedAt: number;
 }
 
+export type ColorTheme = "default" | "violet" | "emerald" | "rose";
+
 export interface WorkspaceSettings {
   id: "settings";
   theme: "dark" | "light" | "system";
+  colorTheme: ColorTheme;
   fontSize: number;
   autoScrollToLastPosition: boolean;
   sidebarCollapsedByDefault: boolean;

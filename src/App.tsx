@@ -31,13 +31,17 @@ export default function App() {
       const dark =
         settings.theme === "dark" ||
         (settings.theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      // HeroUI keys light/dark off both the class and data-theme.
+      root.classList.toggle("dark", dark);
+      root.classList.toggle("light", !dark);
       root.setAttribute("data-theme", dark ? "dark" : "light");
+      root.setAttribute("data-color", settings.colorTheme);
     };
     applyTheme();
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     mql.addEventListener("change", applyTheme);
     return () => mql.removeEventListener("change", applyTheme);
-  }, [settings.theme]);
+  }, [settings.theme, settings.colorTheme]);
 
   useEffect(() => {
     if (!session?.user) {

@@ -26,7 +26,7 @@ export function EmptyState({ title, description, ctaLabel }: EmptyStateProps) {
         <button
           onClick={() => setAddModalOpen(true)}
           className="mt-2 rounded-md px-4 py-2 text-label"
-          style={{ backgroundColor: "var(--color-primary)", color: "var(--color-bg)" }}
+          style={{ backgroundColor: "var(--color-primary)", color: "var(--accent-foreground)" }}
         >
           {ctaLabel}
         </button>

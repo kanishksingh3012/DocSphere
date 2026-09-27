@@ -19,6 +19,7 @@ export const db = new DocSphereDB();
 export const DEFAULT_SETTINGS: WorkspaceSettings = {
   id: "settings",
   theme: "system",
+  colorTheme: "default",
   fontSize: 16,
   autoScrollToLastPosition: true,
   sidebarCollapsedByDefault: false,

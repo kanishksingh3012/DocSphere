@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { ThemeControls } from "./ThemeControls";
 
 /**
  * The command palette (Cmd/Ctrl+K) has no other visible affordance anywhere
@@ -13,6 +14,7 @@ export function NavActions() {
 
   return (
     <div className="flex items-center gap-2">
+      <ThemeControls />
       <button
         onClick={() => setCommandPaletteOpen(true)}
         title="Search docs (Cmd/Ctrl+K)"
